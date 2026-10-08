@@ -12,3 +12,7 @@ __pycache__/
 *.m4a
 *.wav
 *.flac
+
+# The demo page's own video and subtitle files are published on purpose.
+!docs/demo/*.mp4
+!docs/demo/*.vtt
