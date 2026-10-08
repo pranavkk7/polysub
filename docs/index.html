@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PolySub demo</title>
+<meta name="description" content="PolySub turns speech in any video into well-timed subtitles. This page plays real output it produced on an RTX 4060.">
+<style>
+  :root {
+    --bg: #0c0d12;
+    --surface: #15171f;
+    --surface-2: #1c1f2a;
+    --border: #2a2e3c;
+    --text: #eef0f6;
+    --muted: #9aa0b4;
+    --accent: #7c8cff;
+    --accent-2: #4fd1c5;
+    --good: #4ade80;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 80% -10%, #222a5a 0%, transparent 60%), var(--bg);
+    color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 48px 0 24px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 1.1rem; letter-spacing: .02em; }
+  .logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; color: #0c0d12; font-weight: 900; }
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.08; margin: 22px 0 12px; letter-spacing: -.02em; }
+  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { color: var(--muted); font-size: 1.1rem; max-width: 720px; margin: 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; font-weight: 700; text-decoration: none; border: 1px solid var(--border); color: var(--text); background: var(--surface); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0c0d12; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .player { display: grid; gap: 14px; margin-top: 8px; }
+  video { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16 / 9; }
+  video::cue { font-size: 1.15em; background: rgba(0, 0, 0, .72); line-height: 1.35; }
+  .tracks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .tracks span { color: var(--muted); font-size: .9rem; margin-right: 4px; }
+  .chip { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0c0d12; }
+  .note { color: var(--muted); font-size: .88rem; margin: 0; }
+  section { margin: 40px 0; }
+  h2 { font-size: 1.4rem; margin: 0 0 14px; }
+  .transcript { display: grid; gap: 4px; max-height: 420px; overflow: auto; padding-right: 4px; }
+  .row { display: grid; grid-template-columns: 64px 1fr 1fr; gap: 14px; padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; transition: background .2s, border-color .2s; }
+  .row:hover { background: var(--surface-2); }
+  .row.active { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .row time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; padding-top: 2px; }
+  .row .ja { font-size: 1.02rem; }
+  .row .en { color: #cfd3e3; }
+  .row.head { cursor: default; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; padding-bottom: 4px; }
+  .row.head:hover { background: none; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .fact b { display: block; font-size: 1.5rem; }
+  .fact span { color: var(--muted); font-size: .88rem; }
+  pre { background: #0a0b10; border: 1px solid var(--border); border-radius: 12px; padding: 14px; overflow-x: auto; font-size: .9rem; color: #d7dbea; margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+  td.best { color: var(--good); font-weight: 700; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  .ref { margin: 10px 0 0; padding-left: 22px; color: #cfd3e3; }
+  footer { color: var(--muted); font-size: .85rem; padding: 32px 0 48px; border-top: 1px solid var(--border); }
+  @media (max-width: 640px) {
+    .row { grid-template-columns: 52px 1fr; }
+    .row .en { grid-column: 2; }
+    .row.head .en { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .row { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="logo">P</div> PolySub</div>
+    <h1>Subtitles in <span>any language</span>, timed to the word.</h1>
+    <p class="lead">PolySub recognises the speech in a video with the model that measured best for that language,
+      builds subtitles that follow professional reading rules, and translates them with Claude. Below is real output
+      it produced for a Japanese clip.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/pranavkk7/polysub">View the code on GitHub</a>
+      <a class="btn" href="#how">How this was made</a>
+    </div>
+  </header>
+
+  <div class="card player">
+    <video id="video" controls preload="metadata" playsinline crossorigin="anonymous">
+      <source src="demo/demo_ja.mp4" type="video/mp4">
+      <track kind="subtitles" src="demo/ja.vtt" srclang="ja" label="Japanese (recognised)" default>
+      <track kind="subtitles" src="demo/en.vtt" srclang="en" label="English (translated)">
+    </video>
+    <div class="tracks" role="group" aria-label="Subtitle track">
+      <span>Subtitles:</span>
+      <button class="chip" data-track="ja" aria-pressed="true">Japanese, recognised</button>
+      <button class="chip" data-track="en" aria-pressed="false">English, translated</button>
+      <button class="chip" data-track="off" aria-pressed="false">Off</button>
+    </div>
+    <p class="note">This page plays files PolySub produced on an RTX 4060: the speech models need a GPU, so they can't
+      run in the browser. Audio: 8 sentences from Google's FLEURS benchmark, read by different speakers.</p>
+  </div>
+
+  <section>
+    <h2>Both tracks, side by side</h2>
+    <div class="card">
+      <div class="transcript" id="transcript">
+        <div class="row head"><time>Time</time><div class="ja">Japanese (PolySub)</div><div class="en">English (PolySub)</div></div>
+      </div>
+      <p class="note" style="margin-top:12px">Tap a line to jump to it. English cues have their own timing (Whisper's
+        offline translation); with Claude, translations keep the Japanese timing exactly and any language is possible.</p>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>How this was made</h2>
+    <div class="facts">
+      <div class="card fact"><b>Japanese</b><span>detected from the first 30 seconds</span></div>
+      <div class="card fact"><b>Whisper large-v3</b><span>chosen for Japanese because it measured better than Qwen3-ASR</span></div>
+      <div class="card fact"><b>6.7% CER</b><span>this clip, against the FLEURS transcripts (304 characters)</span></div>
+      <div class="card fact"><b>~2× real time</b><span>82 s of audio recognised in about 41 s on an RTX 4060</span></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <pre>$ python -m polysub demo_ja.mp4 --to ja --format vtt
+$ python -m polysub demo_ja.mp4 --to en --format vtt</pre>
+      <details>
+        <summary>The real transcripts (FLEURS reference)</summary>
+        <ol class="ref" id="reference"></ol>
+      </details>
+      <p class="note" style="margin-top:12px">Making this demo found a bug: Whisper skipped sentence 2 in the middle of its
+        30-second window. PolySub now recognises any detected speech that produced no words a second time, on its own.
+        On 90 FLEURS clips the error rate stayed the same (3.85%), and no text appeared in long silences.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Measured accuracy</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Language</th><th>Clips</th><th>Qwen3-ASR-1.7B + aligner</th><th>Whisper large-v3</th><th>PolySub uses</th></tr></thead>
+        <tbody>
+          <tr><td>English (WER)</td><td>90</td><td class="best">3.8%</td><td>4.2%</td><td>Qwen</td></tr>
+          <tr><td>Japanese (CER)</td><td>90</td><td>5.4%</td><td class="best">4.1%</td><td>Whisper</td></tr>
+          <tr><td>Hindi (WER)</td><td>30</td><td>cannot time Hindi</td><td class="best">25.6%</td><td>Whisper</td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:12px">FLEURS dev set. Published benchmarks predicted Qwen for both English and
+        Japanese; the measurement disagreed for Japanese, so PolySub routes Japanese to Whisper.</p>
+    </div>
+  </section>
+
+  <footer>
+    Built by <a href="https://github.com/pranavkk7">Pranav KK</a>. Audio from
+    <a href="https://huggingface.co/datasets/google/fleurs">FLEURS</a> by Google, CC-BY 4.0.
+  </footer>
+</div>
+
+<script>
+  // Track buttons, the synced transcript, and the reference list. Plain JavaScript, no libraries.
+  const video = document.getElementById('video')
+  const chips = document.querySelectorAll('[data-track]')
+
+  const showTrack = (lang) => {
+    for (const track of video.textTracks) track.mode = track.language === lang ? 'showing' : 'disabled'
+    chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.track === lang)))
+  }
+  chips.forEach((c) => c.addEventListener('click', () => showTrack(c.dataset.track)))
+  showTrack('ja')
+
+  const parseVtt = (text) => text.split(/\r?\n\r?\n/).map((block) => {
+    const lines = block.split(/\r?\n/).filter(Boolean)
+    const timing = lines.find((l) => l.includes('-->'))
+    if (!timing) return null
+    const [a, b] = timing.split('-->').map((t) => t.trim().split(' ')[0])
+    const seconds = (t) => t.split(':').reduce((sum, part) => sum * 60 + parseFloat(part), 0)
+    return { start: seconds(a), end: seconds(b), text: lines.slice(lines.indexOf(timing) + 1).join(' ') }
+  }).filter(Boolean)
+
+  const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+  Promise.all(['demo/ja.vtt', 'demo/en.vtt'].map((u) => fetch(u).then((r) => r.text()))).then(([ja, en]) => {
+    const jaCues = parseVtt(ja)
+    const enCues = parseVtt(en)
+    const list = document.getElementById('transcript')
+    const rows = jaCues.map((cue) => {
+      // The English line whose time overlaps this Japanese cue the most.
+      const overlap = (c) => Math.max(0, Math.min(c.end, cue.end) - Math.max(c.start, cue.start))
+      const match = enCues.reduce((best, c) => (overlap(c) > (best ? overlap(best) : 0) ? c : best), null)
+      const row = document.createElement('div')
+      row.className = 'row'
+      row.innerHTML = `<time>${clock(cue.start)}</time><div class="ja"></div><div class="en"></div>`
+      row.querySelector('.ja').textContent = cue.text.replace(/\s+/g, '')
+      row.querySelector('.en').textContent = match ? match.text : ''
+      row.addEventListener('click', () => { video.currentTime = cue.start + 0.01; video.play() })
+      list.append(row)
+      return { row, cue }
+    })
+    video.addEventListener('timeupdate', () => {
+      const t = video.currentTime
+      rows.forEach(({ row, cue }) => row.classList.toggle('active', t >= cue.start && t < cue.end))
+    })
+  })
+
+  fetch('demo/reference.json').then((r) => r.json()).then((sentences) => {
+    const list = document.getElementById('reference')
+    sentences.forEach((s) => { const li = document.createElement('li'); li.textContent = s; list.append(li) })
+  })
+</script>
+</body>
+</html>

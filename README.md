@@ -3,6 +3,10 @@
 Turn speech in any video into accurate, well-timed subtitles, in the original language or translated into
 another one: Japanese → English, English → Hindi, Hindi → English, and so on.
 
+**[▶ Watch the demo](https://pranavkk7.github.io/polysub/)**: a Japanese clip with PolySub's own Japanese and English
+subtitles, switchable in the player, with both tracks side by side. (The models need a GPU, so the page plays
+recorded output.)
+
 - **Speech recognition runs locally on your GPU**, choosing the more accurate open model for each language
   **based on measurements**: **Qwen3-ASR-1.7B** with **Qwen3-ForcedAligner-0.6B** (word-level timing), or
   **Whisper large-v3** (about 100 languages, including Hindi, Malayalam, Tamil and Arabic).
