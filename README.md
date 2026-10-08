@@ -12,7 +12,7 @@ another one: Japanese → English, English → Hindi, Hindi → English, and so 
   sentence ends, a minimum time on screen, and no overlaps.
 - **Outputs:** SRT, WebVTT, **bilingual** subtitles (translation + original), and the video with subtitles
   **burned in**.
-- **Measured accuracy** on Google's FLEURS benchmark (below), and 43 automated tests.
+- **Measured accuracy** on Google's FLEURS benchmark (below), and 44 automated tests.
 
 A real run on the demo video (2 minutes of Japanese speech from FLEURS, offline mode, RTX 4060):
 
@@ -65,19 +65,24 @@ video ──FFmpeg──▶ 16 kHz audio ──Whisper──▶ detect language 
      languages its aligner can time (Chinese, Cantonese, French, German, Italian, Korean, Portuguese,
      Russian, Spanish) go to Qwen.
    - **Everything else** (Hindi, Malayalam, Tamil, Arabic and about 90 more) goes to Whisper large-v3.
-4. **Long audio** is cut into ≤170-second pieces at the quietest moment, so no word is split (the aligner
+4. **No skipped sentences:** Whisper can drop a whole sentence in the middle of its 30-second window (found
+   on the demo video: a sentence of unusual names, with the Japanese punctuation prompt on). After
+   recognition, any stretch the voice detector marked as speech but that produced no words is recognised
+   again on its own. On 90 FLEURS Japanese clips this changed nothing (CER 3.85% before and after), and
+   no text appeared in 12-second silences or noise.
+5. **Long audio** is cut into ≤170-second pieces at the quietest moment, so no word is split (the aligner
    handles up to 180 s per call).
-5. **Words are cleaned up before they become subtitles:**
+6. **Words are cleaned up before they become subtitles:**
    - The aligner drops punctuation and hyphens, so each word is rebuilt as written in the transcript.
    - Whisper's sub-word pieces are merged into whole words.
    - Japanese is split into real words with `nagisa`, so lines never break inside a word.
    - For Japanese and Chinese, a punctuated example prompt makes Whisper write 。and 、(94 marks instead of
      42 on the test clips, with no loss of accuracy).
    - Then words become **subtitle cues** following common style-guide rules.
-6. **Claude** translates the cues in numbered batches of 40. A JSON schema guarantees one translation per
+7. **Claude** translates the cues in numbered batches of 40. A JSON schema guarantees one translation per
    cue, so nothing shifts out of sync. A missing line is asked for again, and the cost is estimated from
    token usage.
-7. Only one model is kept on the GPU at a time, so it all fits in 8 GB.
+8. Only one model is kept on the GPU at a time, so it all fits in 8 GB.
 
 ## Accuracy (measured)
 FLEURS dev set (Google's multilingual benchmark, CC-BY 4.0), different sentences read by real speakers, on an
@@ -149,7 +154,7 @@ Optional settings: `POLYSUB_MODEL` (default `claude-opus-5-5`) and `POLYSUB_EFFO
 pip install -r requirements-dev.txt
 pytest
 ```
-43 tests cover language routing, chunking at quiet moments, punctuation repair, subtitle rules, SRT/VTT/
+44 tests cover language routing, chunking at quiet moments, punctuation repair, subtitle rules, SRT/VTT/
 bilingual output, translation batching (complete, retried, refused and malformed replies), cost
 estimates, the full pipeline and the command line. The models and Claude are replaced by stand-ins, so the
 tests run in under a second with no GPU, downloads or API key, which is how CI runs them.
@@ -167,7 +172,7 @@ polysub/
   pipeline.py    the whole job, shared by the CLI and the web page
   cli.py, web.py command line and Gradio web page
   evaluate.py    WER/CER evaluation
-tests/           43 tests with fake engines and a fake Claude client
+tests/           44 tests with fake engines and a fake Claude client
 ```
 
 ## Limitations

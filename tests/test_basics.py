@@ -79,3 +79,14 @@ def test_wer_for_spaced_languages_and_cer_for_japanese():
     assert error_rate(["the cat sat"], ["the cat sat"], "en") == 0
     assert error_rate(["the cat sat down"], ["the bat sat"], "en") == 0.5  # 1 substitution + 1 deletion / 4
     assert error_rate(["今日は晴れ"], ["今日は雨"], "ja") == pytest.approx(2 / 5)
+
+
+def test_speech_without_any_words_is_found_for_a_second_pass():
+    from polysub.asr import missed_spans
+    from polysub.cues import Word
+
+    words = [Word("日本", 1.6, 2.0), Word("島", 7.5, 8.0), Word("自然", 22.0, 22.5)]
+    speech = [(1.5, 9.6), (13.0, 17.3), (21.9, 28.5), (40.0, 40.4)]
+    # 13.0-17.3 had speech but no words; 40.0-40.4 is too short to be a missed sentence.
+    assert missed_spans(speech, words) == [(13.0, 17.3)]
+    assert missed_spans(speech[:1], words) == []

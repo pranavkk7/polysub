@@ -22,6 +22,7 @@ QWEN_ASR_MODEL = "Qwen/Qwen3-ASR-1.7B"
 QWEN_ALIGNER_MODEL = "Qwen/Qwen3-ForcedAligner-0.6B"
 WHISPER_MODEL = "large-v3"
 QWEN_CHUNK_SECONDS = 170  # the aligner handles at most 180 s per call
+MIN_MISSED_SECONDS = 1.0  # shorter stretches of "speech" without words are breaths and noises
 
 
 @dataclass
@@ -29,6 +30,18 @@ class Transcript:
     language: str
     words: list = field(default_factory=list)
     engine: str = ""
+
+
+def missed_spans(speech, words, min_seconds=MIN_MISSED_SECONDS):
+    """Stretches the voice detector marked as speech but that produced no words at all.
+
+    Whisper sometimes skips a whole sentence in the middle of its 30-second window (seen with the
+    Japanese punctuation prompt on a sentence of unusual names). Those stretches are recognised again
+    on their own. `speech` is a list of (start, end) seconds; a stretch counts as covered when any
+    word's midpoint falls inside it.
+    """
+    mids = [(w.start + w.end) / 2 for w in words]
+    return [(a, b) for a, b in speech if b - a >= min_seconds and not any(a <= m <= b for m in mids)]
 
 
 def _free_gpu():
@@ -120,6 +133,7 @@ class WhisperEngine:
             if progress and info.duration:
                 progress(min(segment.end / info.duration, 1.0))
         spoken = language or info.language
+        pieces = self._recover_missed(audio, pieces, spoken, task, prompt)
         written = spoken if task == "transcribe" else "en"
         if languages.uses_spaces(written):
             words = merge_pieces(pieces)
@@ -127,6 +141,21 @@ class WhisperEngine:
             tokenizer = japanese_tokenizer() if written == "ja" else None
             words = resegment(pieces, tokenizer) if tokenizer else pieces
         return Transcript(language=spoken, words=words, engine=self.label)
+
+    def _recover_missed(self, audio, pieces, language, task, prompt):
+        """Recognises again, one at a time, any detected speech that produced no words."""
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+        speech = [(s["start"] / SAMPLE_RATE, s["end"] / SAMPLE_RATE) for s in get_speech_timestamps(audio, VadOptions())]
+        for start, end in missed_spans(speech, pieces):
+            clip = audio[int(start * SAMPLE_RATE): int(end * SAMPLE_RATE)]
+            segments, _ = self.model.transcribe(
+                clip, language=language, task=task, beam_size=5, word_timestamps=True,
+                vad_filter=False,  # the clip is speech already
+                condition_on_previous_text=False, initial_prompt=prompt,
+            )
+            pieces.extend(Word(w.word, w.start + start, w.end + start) for seg in segments for w in (seg.words or []))
+        return sorted(pieces, key=lambda w: w.start)
 
     def close(self):
         self.model = None
