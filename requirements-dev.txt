@@ -1,0 +1,3 @@
+# The tests replace the models and Claude with stand-ins, so they need only these.
+numpy
+pytest

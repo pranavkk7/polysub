@@ -1,0 +1,6 @@
+# Install the GPU build of PyTorch first (see https://pytorch.org/get-started/locally/), for example:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+qwen-asr==0.0.6        # Qwen3-ASR + Qwen3-ForcedAligner (also installs transformers, gradio, librosa)
+faster-whisper>=1.2    # Whisper large-v3 for languages Qwen cannot time
+anthropic>=1.11        # Claude translation
+numpy

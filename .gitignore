@@ -1,0 +1,14 @@
+__pycache__/
+.venv/
+.pytest_cache/
+# media and generated subtitles stay local
+*.srt
+*.vtt
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.mp3
+*.m4a
+*.wav
+*.flac
